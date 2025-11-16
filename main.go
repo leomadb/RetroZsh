@@ -32,11 +32,16 @@ func main() {
 		var score int = 0
 		var snakeBody [][]int
 		lastHeadPosition := make([]int, 2)
-		applePosition := make([]int, 2)
+		w, h := screen.Size()
+		applePosition := []int{w / 2, h / 2}
 		chars := []rune{'#'}
-
-		showApple(screen, applePosition)
 		snakeStyle := tcell.Style.Foreground(tcell.StyleDefault, tcell.ColorGreen).Background(tcell.ColorBlack)
+		snakeBodyStyle := tcell.Style.Foreground(tcell.StyleDefault, tcell.ColorDarkGreen).Background(tcell.ColorBlack)
+		appleStyle := tcell.Style.Foreground(tcell.StyleDefault, tcell.ColorRed).Background(tcell.ColorBlack)
+		/*
+			backdropStyle1 := tcell.Style.Background(tcell.StyleDefault, tcell.ColorGray)
+			backdropStyle2 := tcell.Style.Background(tcell.StyleDefault, tcell.ColorBlack)
+		*/
 
 		for {
 			select {
@@ -52,27 +57,65 @@ func main() {
 
 				switch direction {
 				case 1:
-					snakeHead[0]--
-				case 2:
-					snakeHead[1]++
-				case 3:
-					snakeHead[0]++
-				case 4:
-					snakeHead[1]--
-				}
-
-				if snakeHead[0] == applePosition[0] && snakeHead[1] == applePosition[1] {
-					eatApple(screen, applePosition, score)
-					snakeBody = append(snakeBody, lastHeadPosition)
-				}
-
-				for i := range snakeBody {
-					if i == 0 {
-						snakeBody[i][0] = lastHeadPosition[0]
-						snakeBody[i][1] = lastHeadPosition[1]
+					if snakeHead[0] == 1 {
+						snakeHead[0] = w - 2
 					} else {
+						snakeHead[0]--
+					}
+				case 2:
+					if snakeHead[1] == h-2 {
+						snakeHead[1] = 1
+					} else {
+						snakeHead[1]++
+					}
+				case 3:
+					if snakeHead[0] == w-2 {
+						snakeHead[0] = 2
+					} else {
+						snakeHead[0]++
+					}
+				case 4:
+					if snakeHead[1] == 1 {
+						snakeHead[1] = h - 2
+					} else {
+						snakeHead[1]--
+					}
+				}
+
+				// Check for apple collision
+				ateApple := snakeHead[0] == applePosition[0] && snakeHead[1] == applePosition[1]
+				if ateApple {
+					score++
+					applePosition = showApple(screen, nil)
+				}
+
+				// Save tail position BEFORE moving (needed for expansion)
+				var oldTailPos []int
+				if len(snakeBody) > 0 {
+					oldTailPos = []int{snakeBody[len(snakeBody)-1][0], snakeBody[len(snakeBody)-1][1]}
+				}
+
+				// Move body segments forward
+				if len(snakeBody) > 0 {
+					// Move all segments forward (from tail to head to avoid overwriting)
+					for i := len(snakeBody) - 1; i > 0; i-- {
 						snakeBody[i][0] = snakeBody[i-1][0]
 						snakeBody[i][1] = snakeBody[i-1][1]
+					}
+					// Move first segment to where head was
+					snakeBody[0][0] = lastHeadPosition[0]
+					snakeBody[0][1] = lastHeadPosition[1]
+				}
+
+				// Add new segment if apple was eaten (at the OLD tail position)
+				if ateApple {
+					if len(snakeBody) == 0 {
+						// If no body yet, add first segment at last head position
+						snakeBody = append(snakeBody, []int{lastHeadPosition[0], lastHeadPosition[1]})
+					} else {
+						// Add new segment at the OLD tail position (before it moved)
+						// This makes the tail stay in place, effectively growing the snake
+						snakeBody = append(snakeBody, []int{oldTailPos[0], oldTailPos[1]})
 					}
 				}
 
@@ -83,9 +126,6 @@ func main() {
 				// Clear The Screen
 				screen.Clear()
 
-				// Dimensions
-				w, h := screen.Size()
-
 				// Draw the frame
 				for x := 0; x < w; x++ {
 					screen.SetContent(x, 0, '█', nil, tcell.StyleDefault)
@@ -95,18 +135,39 @@ func main() {
 					screen.SetContent(0, y, '█', nil, tcell.StyleDefault)
 					screen.SetContent(w-1, y, '█', nil, tcell.StyleDefault)
 				}
-				for i, r := range strconv.Itoa(score) {
-					screen.SetContent(w-2-i, 0, r, nil, tcell.StyleDefault)
+
+				// Score
+				for i, r := range "score: " + strconv.Itoa(score) {
+					screen.SetContent(1+i, 0, r, nil, tcell.StyleDefault)
 				}
 
+				// Backdrop
+				/*
+					for x := 0; x < w; x++ {
+						for y := 0; y < h; y++ {
+							if x == 0 || x == w-1 || y == 0 || y == h-1 {
+								continue
+							} else {
+								if (x+y)%2 == 0 {
+									screen.SetContent(x, y, ' ', nil, backdropStyle1)
+								} else {
+									screen.SetContent(x, y, ' ', nil, backdropStyle2)
+								}
+							}
+						}
+					}
+				*/
 				screen.SetContent(snakeHead[0], snakeHead[1], chars[0], nil, snakeStyle)
 				for _, pos := range snakeBody {
-					screen.SetContent(pos[0], pos[1], chars[0], nil, snakeStyle)
+					screen.SetContent(pos[0], pos[1], chars[0], nil, snakeBodyStyle)
 				}
+
+				// Draw the apple
+				screen.SetContent(applePosition[0], applePosition[1], 'O', nil, appleStyle)
 
 				screen.Show()
 
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(75 * time.Millisecond)
 			}
 		}
 	}()
@@ -124,30 +185,27 @@ func main() {
 			if event.Key() == tcell.KeyLeft {
 				direction = 1
 			} else if event.Key() == tcell.KeyUp {
-				direction = 2
+				direction = 4
 			} else if event.Key() == tcell.KeyRight {
 				direction = 3
 			} else if event.Key() == tcell.KeyDown {
-				direction = 4
+				direction = 2
 			}
 		}
 	}
 }
 
-func showApple(screen tcell.Screen, pos []int) {
+func showApple(screen tcell.Screen, pos []int) []int {
 	w, h := screen.Size()
 
-	x := rand.IntN(w)
-	y := rand.IntN(h)
+	var x, y int
 	if pos != nil {
 		x = pos[0]
 		y = pos[1]
+	} else {
+		// Generate random position, avoiding the borders (frame)
+		x = rand.IntN(w-4) + 2
+		y = rand.IntN(h-4) + 2
 	}
-	screen.SetContent(x, y, '🍎', nil, tcell.StyleDefault)
-
-}
-
-func eatApple(screen tcell.Screen, pos []int, score int) {
-	score++
-	showApple(screen, pos)
+	return []int{x, y}
 }
