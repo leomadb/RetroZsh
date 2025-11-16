@@ -70,7 +70,7 @@ func main() {
 					}
 				case 3:
 					if snakeHead[0] == w-2 {
-						snakeHead[0] = 2
+						snakeHead[0] = 1
 					} else {
 						snakeHead[0]++
 					}
@@ -157,10 +157,10 @@ func main() {
 						}
 					}
 				*/
-				screen.SetContent(snakeHead[0], snakeHead[1], chars[0], nil, snakeStyle)
 				for _, pos := range snakeBody {
 					screen.SetContent(pos[0], pos[1], chars[0], nil, snakeBodyStyle)
 				}
+				screen.SetContent(snakeHead[0], snakeHead[1], chars[0], nil, snakeStyle)
 
 				// Draw the apple
 				screen.SetContent(applePosition[0], applePosition[1], 'O', nil, appleStyle)
